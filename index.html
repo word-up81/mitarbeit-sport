@@ -214,7 +214,8 @@ input::placeholder{color:#7a7a7a}
       <div class="muted" style="font-size:14px;margin-top:8px" id="lastExp"></div></div>
     <div class="card"><h3>3. Nach dem Import am Mac aufräumen</h3>
       <div class="muted" style="font-size:15px">Löscht alle Stunden, die gesendet und danach nicht mehr geändert wurden. Die Schülerlisten bleiben. Erst drücken, wenn der Import am Mac geklappt hat.</div>
-      <button id="clearSent">Gesendete Stunden löschen</button></div>
+      <button id="clearSent">Gesendete Stunden löschen</button>
+      <button id="undoDel" class="hidden"></button></div>
     <div class="card"><h3>Übertragungs-Passwort</h3>
       <div class="muted" style="font-size:15px" id="pwInfo"></div>
       <button id="pwBtn">Passwort festlegen</button></div>
@@ -305,7 +306,7 @@ function deleteLesson(id){
   const n = Object.keys(l.entries).length;
   const hint = n && !isSent(l) ? "\n\nAchtung: Diese Stunde wurde noch nicht an den Mac gesendet." : "";
   if (!confirm(`Stunde vom ${fmtDate(l.date)}${l.topic ? " (" + l.topic + ")" : ""} mit ${n} Einträgen löschen?${hint}`)){ renderGroup(); return; }
-  g.lessons = g.lessons.filter(x => x.id !== id); save(); toast("Stunde gelöscht"); renderGroup();
+  remember([{ g: g.id, l }]); g.lessons = g.lessons.filter(x => x.id !== id); save(); toast("Stunde gelöscht"); renderGroup();
 }
 $("#todayBtn").onclick = () => {
   const g = G(); let l = g.lessons.find(x => x.date === today());
@@ -467,6 +468,9 @@ function setTransferPw(pw){ data.transferPw = pw; save(); }
 $("#toData").onclick = renderData; $("#dBack").onclick = renderHome;
 function renderData(){
   show("data");
+  const d = data.lastDeleted, ub = $("#undoDel");
+  ub.classList.toggle("hidden", !d);
+  if (d) ub.textContent = `Letzte Löschung rückgängig (${d.items.length} Stunde${d.items.length === 1 ? "" : "n"}, ${new Date(d.at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`;
   $("#lastExp").textContent = data.lastExport ? "Zuletzt gesendet: " + new Date(data.lastExport).toLocaleString("de-DE") : "Noch nie gesendet.";
   const r = data.rule;
   $("#ruleInfo").textContent = `Mündliche Note wie am Mac: Qualität + ${r.qual["+"]} / 0 ${r.qual["0"]} / − ${r.qual["-"]} Punkte, Aktivität ${r.act[1]}/${r.act[2]}/+${r.act[3]}, Fachsprache +${r.fs}. Wird beim Import der Liste vom Mac übernommen. Die Beteiligung wird am Mac umgerechnet.`;
@@ -506,7 +510,19 @@ $("#clearSent").onclick = () => {
   const all = data.groups.flatMap(g => g.lessons), del = all.filter(isSent), keep = all.length - del.length;
   if (!del.length) return alert(all.length ? "Keine Stunde ist bereits gesendet. Erst „An Mac senden“." : "Es gibt keine Stunden.");
   if (!confirm(`${del.length} gesendete Stunde(n) löschen?` + (keep ? `\n${keep} Stunde(n) wurden noch nicht gesendet oder danach geändert und bleiben erhalten.` : "") + "\n\nHat der Import am Mac geklappt?")) return;
+  remember(data.groups.flatMap(g => g.lessons.filter(isSent).map(l => ({ g: g.id, l }))));
   data.groups.forEach(g => { g.lessons = g.lessons.filter(l => !isSent(l)); }); save(); toast(`${del.length} Stunde(n) gelöscht`); renderData();
+};
+/* Letzte Löschung merken (nur die letzte, ältere wird verworfen) */
+function remember(items){ data.lastDeleted = { at: Date.now(), items }; }
+$("#undoDel").onclick = () => {
+  const d = data.lastDeleted; if (!d) return;
+  let n = 0;
+  for (const { g: gid, l } of d.items){
+    const g = data.groups.find(x => x.id === gid); if (!g || g.lessons.some(x => x.id === l.id)) continue;
+    g.lessons.push(l); n++;
+  }
+  delete data.lastDeleted; save(); toast(`${n} Stunde(n) wiederhergestellt`); renderData();
 };
 $("#wipeBtn").onclick = () => {
   if (!confirm("Wirklich alle Sport-Daten auf diesem iPhone löschen? Vorher an den Mac senden!")) return;
