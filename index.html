@@ -143,6 +143,13 @@ input::placeholder{color:#7a7a7a}
 .sw button{margin:0!important;border-radius:0!important;position:relative;z-index:1;transition:transform .2s ease;touch-action:pan-y}
 .swdel{position:absolute;right:0;top:0;bottom:0;width:100%;padding-right:22px;justify-content:flex-end!important;background:#e5484d;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
 .seg.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.seg button.small{padding:0 6px;font-size:14px;line-height:1.15}
+.lrow .l2 button{flex:1 1 0;min-width:0}
+.lrow .l2 .lbl{flex:none;width:44px}
+.lrow .l3 .chip{flex:1.2 1 0;padding:0 4px;height:38px;font-size:13px;font-weight:700}
+.lrow .l2 .chip.on-mid{color:#000}
+.lrow .osel{flex:none;width:58px;height:30px;border-radius:999px;background:#2a2a2a;color:var(--muted);border:1.5px solid transparent;font:inherit;font-size:14px;font-weight:800;text-align:center;text-align-last:center;padding:0 4px;-webkit-appearance:none;appearance:none}
+.lrow .osel.manual{border-color:var(--accent);color:var(--accent)}
+.lrow .osel:disabled{opacity:.35}
 #oralSel{width:100%;height:52px;border-radius:999px;background:#2a2a2a;color:#fff;border:2px solid transparent;font:inherit;font-size:17px;font-weight:700;padding:0 18px;-webkit-appearance:none;appearance:none}
 #oralSel.manual{border-color:var(--accent);color:var(--accent)}
 </style>
@@ -179,7 +186,7 @@ input::placeholder{color:#7a7a7a}
 <!-- Stunde: Liste aller Schüler (zum Bewerten nach der Stunde) -->
 <div class="screen hidden" id="list">
   <div class="top"><button class="link" id="listBack">‹ Suche</button><h1 id="listTitle"></h1><span class="sub" id="listCount"></span></div>
-  <div class="muted" style="font-size:13px">Akt. = mehrmals tippen · Qualität + 0 − · FS · B = Beteiligung · Name antippen für Notiz</div>
+  <div class="muted" style="font-size:13px">Akt. mehrmals tippen · Qualität + 0 − · FS · Note neben dem Namen überschreibt die mündliche Note · Name antippen für Notiz</div>
   <div id="listRows"></div>
 </div>
 
@@ -389,23 +396,32 @@ function renderList(){
   $("#listRows").innerHTML = sorted.map(s => `<div class="lrow" data-s="${s.id}"></div>`).join("");
   sorted.forEach(s => renderListRow(s.id));
 }
+function oralSelect(e){
+  const auto = oralPoints({ ...e, oral: null }), man = e.oral != null;
+  return `<select class="osel${man ? " manual" : ""}" aria-label="Mündliche Note" ${e.absent ? "disabled" : ""}><option value="">${auto == null ? "Note" : GRADE[auto]}</option>`
+    + GRADE.map((gr, p) => [gr, p]).reverse().map(([gr, p]) => `<option value="${p}" ${man && e.oral === p ? "selected" : ""}>${gr}</option>`).join("") + `</select>`;
+}
 function renderListRow(sid){
   const g = G(), l = L(), s = g.students.find(x => x.id === sid), e = l.entries[sid] || {};
   const row = document.querySelector(`.lrow[data-s="${sid}"]`); if (!row) return;
   const cls = { "+": "on-good", "0": "on-mid", "-": "on-bad" }, sym = v => v === "-" ? "−" : v;
   row.className = "lrow" + (e.absent ? " abs" : "");
   row.innerHTML = `<div class="l1"><div class="nm" data-open>${esc(displayName(g, s))} <small>${esc(s.last)}</small>${e.note ? " ✎" : ""}</div>
-      <button class="chip ${e.absent ? "on-abs" : ""}" data-t="absent">abw.</button>
-      <button class="chip ${e.forgot ? "on-mid" : ""}" data-t="forgot">verg.</button>
-      <button class="chip ${e.excused ? "on-mid" : ""}" data-t="excused">ent.</button></div>
+      ${oralSelect(e)}
+      <button class="chip ${e.absent ? "on-abs" : ""}" data-t="absent">abw.</button></div>
     <div class="l2"><button class="act" data-v="${e.act || 0}" style="min-width:44px">${e.act || '<span style="font-size:12px;font-weight:600;color:var(--muted)">Akt</span>'}</button>
       ${["+","0","-"].map(v => `<button data-q="${v}" class="${e.qual === v ? cls[v] : ""}">${sym(v)}</button>`).join("")}
       <button data-fs class="${e.fs ? "on-acc" : ""}" style="font-size:13px">FS</button>
-      <span class="sep"></span><span class="lbl">B</span>
-      ${["+","0","-"].map(v => `<button data-p="${v}" class="${e.part === v ? cls[v] : ""}" ${e.forgot || e.excused ? "disabled style='opacity:.35'" : ""}>${sym(v)}</button>`).join("")}</div>`;
+</div>
+    <div class="l2 l3"><span class="lbl">Beteil.</span>
+      ${["+","0","-"].map(v => `<button data-p="${v}" class="${e.part === v ? cls[v] : ""}" ${e.forgot || e.excused ? "disabled style='opacity:.35'" : ""}>${sym(v)}</button>`).join("")}
+      <span class="sep"></span>
+      <button class="chip ${e.forgot ? "on-mid" : ""}" data-t="forgot">verg.</button>
+      <button class="chip ${e.excused ? "on-mid" : ""}" data-t="excused">ent.</button></div>`;
   const u = fn => { cur.s = sid; fn(E()); cleanup(); touch(); save(); renderListRow(sid); $("#listCount").textContent = `${Object.keys(L().entries).length}/${G().students.length}`; };
   row.querySelector("[data-open]").onclick = () => { entryFrom = "list"; openEntry(sid); };
   row.querySelectorAll("[data-t]").forEach(b => b.onclick = () => u(x => { const k = b.dataset.t; x[k] = !x[k]; if (k === "absent" && x.absent){ x.forgot = x.excused = false; } else if (x[k]) x.absent = false; }));
+  row.querySelector(".osel").onchange = ev => u(x => { x.oral = ev.target.value === "" ? null : +ev.target.value; });
   row.querySelector(".act").onclick = () => u(x => { x.act = ((x.act || 0) + 1) % 4; });
   row.querySelectorAll("[data-q]").forEach(b => b.onclick = () => u(x => { x.qual = x.qual === b.dataset.q ? null : b.dataset.q; }));
   row.querySelectorAll("[data-p]").forEach(b => b.onclick = () => u(x => { x.part = x.part === b.dataset.p ? null : b.dataset.p; }));
