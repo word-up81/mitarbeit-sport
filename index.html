@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sport">
-<meta name="theme-color" content="#f6f7f9">
+<meta name="theme-color" content="#121212">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Sport</title>
@@ -83,6 +83,62 @@ button:active{transform:scale(.97)}
 .lrow .l2 button.act[data-v="1"]{background:#eef2fd}.lrow .l2 button.act[data-v="2"]{background:#d7e1fa}.lrow .l2 button.act[data-v="3"]{background:#b5c7f5}
 .lrow.abs .l2{opacity:.35;pointer-events:none}
 input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
+
+/* ===== Dunkles Design (inspiriert von Musik-Streaming-Apps) ===== */
+:root{--bg:#121212;--panel:#1e1e1e;--panel2:#2a2a2a;--text:#ffffff;--muted:#a7a7a7;--line:#2f2f2f;--accent:#1ed760;--accent-soft:rgba(30,215,96,.16);
+  --good:#1ed760;--good-soft:rgba(30,215,96,.18);--mid:#ffb84d;--mid-soft:rgba(255,184,77,.18);--bad:#ff5d6c;--bad-soft:rgba(255,93,108,.18);--abs:#5a5a5a;--abs-soft:#191919}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.screen{background:linear-gradient(180deg,#1d3b2a 0%,#121212 220px)}
+#entry,#data,#list{background:linear-gradient(180deg,#232323 0%,#121212 260px)}
+button{background:var(--panel2);border:none;color:var(--text);border-radius:10px;font-weight:600;transition:transform .08s,background .15s}
+button:active{transform:scale(.96);background:#3a3a3a}
+.top h1{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.top .sub,.muted{color:var(--muted)}
+.link{background:none!important;color:var(--text);font-weight:700}
+.primary{background:var(--accent)!important;color:#000!important;font-weight:800;border-radius:999px!important;letter-spacing:.01em}
+.primary:active{background:#3be477!important}
+.list button{background:var(--panel);border-radius:8px;padding:16px 18px}
+.list button b{font-size:18px;font-weight:800}
+.list .meta{color:var(--muted)}
+#todayBtn{font-size:18px!important;padding:18px!important;box-shadow:0 8px 24px rgba(30,215,96,.25)}
+.card{background:var(--panel);border:none;border-radius:10px}
+.card h3{font-weight:800}
+input,#noteIn,#lTopic,input[type=date]{background:var(--panel2)!important;border:1px solid transparent!important;color:var(--text)!important;border-radius:8px!important;color-scheme:dark}
+input:focus{outline:none;border-color:var(--accent)!important}
+input::placeholder{color:#7a7a7a}
+/* T9 */
+#hits button{background:var(--panel);border-radius:8px;font-weight:800}
+#hits button small{color:var(--muted)}
+#hits button.done{background:#1f3a29;box-shadow:inset 3px 0 0 var(--accent)}
+#hits button .badge{color:var(--accent)}
+#typed{color:var(--accent);font-weight:700}
+#pad{gap:10px}
+#pad button{background:var(--panel2);border-radius:999px;font-weight:700}
+#pad button small{color:var(--muted)}
+#pad .fn{background:transparent;border:1px solid #3a3a3a;font-size:16px}
+#pad [data-f="all"]{color:var(--accent);border-color:var(--accent)}
+#toList{background:transparent;border:1px solid #7a7a7a;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700}
+/* Eingabe */
+.ename{font-size:30px;font-weight:900;letter-spacing:-.02em}
+.erow .lab{color:var(--muted);font-weight:700;letter-spacing:.1em}
+.seg button{background:var(--panel2);border-radius:999px}
+#actBtn{background:var(--panel2);border-radius:999px;font-weight:900}
+#actBtn[data-v="1"]{background:rgba(30,215,96,.25)}#actBtn[data-v="2"]{background:rgba(30,215,96,.5)}#actBtn[data-v="3"]{background:var(--accent);color:#000}
+.on-good{background:var(--good)!important;color:#000!important}
+.on-mid{background:var(--mid)!important;color:#000!important}
+.on-bad{background:var(--bad)!important;color:#000!important}
+.on-acc{background:var(--accent)!important;color:#000!important}
+.on-abs{background:#e5e5e5!important;color:#000!important}
+#ePts{color:var(--accent);font-weight:800}
+/* Liste */
+.lrow{background:var(--panel);border:none;border-radius:8px}
+.lrow.abs{background:#161616;opacity:.75}
+.lrow .nm{font-weight:800}
+.lrow .chip{background:transparent;border:1px solid #4a4a4a;border-radius:999px;color:var(--muted)}
+.lrow .l2 button{background:var(--panel2);border-radius:999px}
+.lrow .l2 .sep{background:#3a3a3a}
+.lrow .l2 button.act[data-v="1"]{background:rgba(30,215,96,.25)}.lrow .l2 button.act[data-v="2"]{background:rgba(30,215,96,.5)}.lrow .l2 button.act[data-v="3"]{background:var(--accent);color:#000}
+.toast{background:var(--accent);color:#000;font-weight:700;border-radius:999px}
 </style>
 </head>
 <body>
