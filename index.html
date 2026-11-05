@@ -326,12 +326,12 @@ function displayName(g, s){
   return same ? `${s.first} ${s.last[0]}.` : s.first;
 }
 $("#pad").innerHTML = KEYS.map(([d, ls]) => `<button data-d="${d}">${d}<small>${ls}</small></button>`).join("")
-  + `<button class="fn" data-f="all">Alle</button><button class="fn" data-f="del">⌫</button><button class="fn" data-f="clr">C</button>`;
+  + `<button class="fn" data-f="all">Alle</button><button class="fn" data-f="del">⌫</button>`;
 document.querySelectorAll("#pad button").forEach(b => b.onclick = () => {
   if (b.dataset.d) typed += b.dataset.d;
   else if (b.dataset.f === "del") typed = typed.slice(0, -1);
   else if (b.dataset.f === "clr") typed = "";
-  else if (b.dataset.f === "all") typed = "*";
+  else if (b.dataset.f === "all") typed = "";
   renderHits(true);
 });
 function openLesson(){
@@ -345,12 +345,11 @@ function renderHits(fromKey){
   const g = G(), l = L();
   const done = Object.keys(l.entries).length;
   $("#lCount").textContent = `${done}/${g.students.length} erfasst`;
-  $("#typed").textContent = typed === "*" ? "alle" : typed.split("").map(d => KEYS.find(k => k[0] === d)[1][0] + "…").join(" ") || "Vorname über die Tasten";
+  $("#typed").textContent = typed.split("").map(d => KEYS.find(k => k[0] === d)[1][0] + "…").join(" ") || "Alle · Vorname über die Tasten";
   let hits = [];
-  if (typed === "*") hits = [...g.students].sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
-  else if (typed) hits = g.students.filter(s => t9(s.first).startsWith(typed)).sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
-  if (fromKey && typed && typed !== "*" && hits.length === 1){ openEntry(hits[0].id); return; }
-  $("#hits").innerHTML = (typed && !hits.length) ? `<div class="muted" style="grid-column:1/-1;padding:10px">Kein Name passt. ⌫ oder C tippen.</div>`
+  hits = g.students.filter(s => t9(s.first).startsWith(typed)).sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
+  if (fromKey && typed && hits.length === 1){ openEntry(hits[0].id); return; }
+  $("#hits").innerHTML = (typed && !hits.length) ? `<div class="muted" style="grid-column:1/-1;padding:10px">Kein Name passt. ⌫ oder „Alle“ tippen.</div>`
     : hits.map(s => { const e = l.entries[s.id]; const b = badge(e);
       return `<button data-s="${s.id}" class="${e ? "done" : ""}">${esc(displayName(g, s))}<small>${esc(s.last)}</small>${b ? `<span class="badge">${b}</span>` : ""}</button>`; }).join("");
   document.querySelectorAll("#hits [data-s]").forEach(b => b.onclick = () => openEntry(b.dataset.s));
