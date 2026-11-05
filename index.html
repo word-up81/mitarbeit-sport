@@ -288,7 +288,7 @@ const KEY = "mitarbeit-sport-v1";
 let data;
 try { data = JSON.parse(localStorage.getItem(KEY)) || null; } catch { data = null; }
 const DEFAULT_TAGS = { plus: ["sehr engagiert", "hilft anderen", "fair"], minus: ["hält sich nicht an Regeln", "macht nicht mit", "stört"], neutral: ["Sachen vergessen", "entschuldigt"] };
-if (!data) data = { v: 2, groups: [], lastExport: null, tags: DEFAULT_TAGS };
+if (!data) data = { v: 3, groups: [], lastExport: null, tags: DEFAULT_TAGS };
 /* Umstellung auf die vereinfachte Version (ohne Noten, Nachnamen nur als Kürzel) */
 if ((data.v || 1) < 2){
   const toScale = p => p == null ? null : p >= 13 ? "++" : p >= 9 ? "+" : p >= 5 ? "-" : "--";
@@ -302,6 +302,20 @@ if ((data.v || 1) < 2){
   }
   delete data.rule; delete data.lastDeleted; data.tags = data.tags || DEFAULT_TAGS; data.v = 2;
   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+}
+/* Namen: nur erster Vorname, Kürzel des Nachnamens nur bei gleichem Vornamen („Maria C“) */
+function compactNames(list){
+  const firsts = list.map(s => (s.first || "").trim().split(/\s+/)[0]), lasts = list.map(s => (s.last || "").trim().replace(/\.$/, ""));
+  return list.map((s, i) => {
+    const dups = firsts.map((f, j) => j !== i && f === firsts[i] ? j : -1).filter(j => j >= 0);
+    let last = "";
+    if (dups.length && lasts[i]){ let n = 1; while (n < lasts[i].length && dups.some(j => lasts[j].slice(0, n) === lasts[i].slice(0, n))) n++; last = lasts[i].slice(0, n); }
+    return { ...s, first: firsts[i], last };
+  });
+}
+if (data.v < 3){
+  for (const g of data.groups) g.students = compactNames(g.students);
+  data.v = 3; try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
 }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { alert("Speichern fehlgeschlagen: " + e.message); } }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
@@ -430,8 +444,7 @@ const DIGIT = {}; KEYS.forEach(([d, ls]) => [...ls].forEach(c => DIGIT[c.toLower
 const norm = s => s.toLowerCase().replace(/ß/g, "ss").normalize("NFD").replace(/[̀-ͯ]/g, "");
 const t9 = s => [...norm(s)].map(c => DIGIT[c] || "").join("");
 function displayName(g, s){
-  const same = g.students.filter(x => x.first === s.first).length > 1;
-  return same ? `${s.first} ${s.last}` : s.first;
+  return s.last ? `${s.first} ${s.last}` : s.first;
 }
 $("#pad").innerHTML = KEYS.map(([d, ls]) => `<button data-d="${d}">${d}<small>${ls}</small></button>`).join("")
   + `<button class="fn" data-f="all">Alle</button><button class="fn" data-f="open">Offen</button><button class="fn" data-f="del">⌫</button>`;
@@ -463,7 +476,7 @@ function renderHits(fromKey){
     : ((typed || onlyOpen) && !hits.length) ? `<div class="muted" style="grid-column:1/-1;padding:10px">Kein Name passt. ⌫ oder „Alle“ tippen.</div>`
     : hits.map(s => { const e = l.entries[s.id]; const b = badge(e);
       const mk = marks(info[s.id]);
-      return `<button data-s="${s.id}" class="${e ? "done" : ""}">${esc(displayName(g, s))}<small>${esc(s.last)}${mk}</small>${b ? `<span class="badge">${b}</span>` : ""}</button>`; }).join("");
+      return `<button data-s="${s.id}" class="${e ? "done" : ""}">${esc(displayName(g, s))}${mk ? `<small>${mk}</small>` : ""}${b ? `<span class="badge">${b}</span>` : ""}</button>`; }).join("");
   document.querySelectorAll("#hits [data-s]").forEach(b => b.onclick = () => openEntry(b.dataset.s));
 }
 function badge(e){
@@ -493,7 +506,7 @@ function renderListRow(sid){
   const mk = marks(sportInfo(g, l.date)[sid]);
   const btns = (k, val) => SCALE.map(v => `<button data-k="${k}" data-v="${v}" class="${val === v ? SCLS[v] : ""}">${SYM[v]}</button>`).join("");
   row.className = "lrow" + (e.absent ? " abs" : "");
-  row.innerHTML = `<div class="l1"><div class="nm" data-open>${esc(displayName(g, s))} <small>${esc(s.last)}</small>${e.tags && e.tags.length ? ` <span class="tcount">#${e.tags.length}</span>` : ""}${e.note ? " ✎" : ""}${mk}</div>
+  row.innerHTML = `<div class="l1"><div class="nm" data-open>${esc(displayName(g, s))}${e.tags && e.tags.length ? ` <span class="tcount">#${e.tags.length}</span>` : ""}${e.note ? " ✎" : ""}${mk}</div>
       <button class="chip ${e.absent ? "on-abs" : ""}" data-t="absent">abw.</button></div>
     <div class="l2">${btns("r", e.r)}<button data-fs class="${e.fs ? "on-acc" : ""}" style="font-size:13px">FS</button></div>
     <div class="l2 l3"><span class="lbl">Beteil.</span>${btns("w", e.w)}</div>`;
@@ -507,7 +520,7 @@ function renderListRow(sid){
 /* ---------- Eingabe ---------- */
 function E(){ const l = L(); return l.entries[cur.s] || (l.entries[cur.s] = { r: null, fs: false, w: null, tags: [], absent: false, note: "" }); }
 function cleanup(){ const l = L(); if (!hasContent(l.entries[cur.s])) delete l.entries[cur.s]; }
-function openEntry(sid){ cur.s = sid; show("entry"); const g = G(), s = g.students.find(x => x.id === sid); $("#eName").textContent = `${s.first} ${s.last}`; $("#noteIn").value = L().entries[sid]?.note || ""; renderEntry(); }
+function openEntry(sid){ cur.s = sid; show("entry"); const g = G(), s = g.students.find(x => x.id === sid); $("#eName").textContent = displayName(g, s); $("#noteIn").value = L().entries[sid]?.note || ""; renderEntry(); }
 $("#rSeg").innerHTML = SCALE.map(v => `<button data-v="${v}">${SYM[v]}</button>`).join("");
 $("#wSeg").innerHTML = SCALE.map(v => `<button data-v="${v}">${SYM[v]}</button>`).join("");
 function renderEntry(){
@@ -605,7 +618,7 @@ $("#impList").onclick = () => { const fi = $("#fileIn"); fi.value = ""; fi.oncha
     for (const ng of j.groups){
       let g = data.groups.find(x => x.id === ng.id);
       if (!g){ g = { id: ng.id, name: ng.name, students: [], lessons: [] }; data.groups.push(g); }
-      g.name = ng.name; g.students = ng.students.map(s => ({ id: s.id, last: (s.last || "").length > 4 ? s.last[0] + "." : s.last, first: s.first })); n++;
+      g.name = ng.name; g.students = compactNames(ng.students.map(s => ({ id: s.id, last: s.last || "", first: s.first || "" }))); n++;
     }
     save(); toast(`${n} Lerngruppe(n) übernommen`); renderHome();
   } catch (e) { alert("Import fehlgeschlagen: " + e.message); }
