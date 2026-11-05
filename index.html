@@ -130,6 +130,9 @@ input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px
     <div class="card"><h3>3. Nach dem Import am Mac aufräumen</h3>
       <div class="muted" style="font-size:15px">Löscht alle Stunden, die gesendet und danach nicht mehr geändert wurden. Die Schülerlisten bleiben. Erst drücken, wenn der Import am Mac geklappt hat.</div>
       <button id="clearSent">Gesendete Stunden löschen</button></div>
+    <div class="card"><h3>Übertragungs-Passwort</h3>
+      <div class="muted" style="font-size:15px" id="pwInfo"></div>
+      <button id="pwBtn">Passwort festlegen</button></div>
     <div class="card"><h3>Einstellungen</h3>
       <div class="muted" style="font-size:15px" id="ruleInfo"></div></div>
     <div class="card"><h3>Gerät</h3>
@@ -269,18 +272,58 @@ $("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); touch(); s
 const back = () => { $("#noteIn").blur(); openLesson(); };
 $("#doneBtn").onclick = back; $("#eBack").onclick = back;
 
+/* Verschlüsselung der Übertragungsdateien (AES-256-GCM, Schlüssel aus Passwort via PBKDF2) */
+const XFER = {
+  b64: buf => { let s = ""; const a = new Uint8Array(buf); for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000)); return btoa(s); },
+  unb64: s => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
+  async key(pw, salt){
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  },
+  async enc(obj, pw){
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await XFER.key(pw, salt), new TextEncoder().encode(JSON.stringify(obj)));
+    return { app: "mitarbeit-verschluesselt", v: 1, salt: XFER.b64(salt), iv: XFER.b64(iv), data: XFER.b64(ct) };
+  },
+  async dec(blob, pw){
+    const k = await XFER.key(pw, XFER.unb64(blob.salt));
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: XFER.unb64(blob.iv) }, k, XFER.unb64(blob.data));
+    return JSON.parse(new TextDecoder().decode(pt));
+  },
+  // Passwort festlegen (zweimal eingeben)
+  askNew(){
+    const a = prompt("Übertragungs-Passwort festlegen (mind. 8 Zeichen).\nDasselbe Passwort brauchst du am Mac und auf dem iPhone.");
+    if (a == null) return null;
+    if (a.length < 8){ alert("Mindestens 8 Zeichen."); return null; }
+    if (prompt("Passwort wiederholen:") !== a){ alert("Die Passwörter stimmen nicht überein."); return null; }
+    return a;
+  },
+  // Datei öffnen: verschlüsselt (mit gespeichertem oder abgefragtem Passwort) oder alt/unverschlüsselt
+  async open(j, savedPw, onNewPw){
+    if (j.app !== "mitarbeit-verschluesselt") return j;
+    if (savedPw){ try { return await XFER.dec(j, savedPw); } catch {} }
+    const pw = prompt(savedPw ? "Das gespeicherte Übertragungs-Passwort passt nicht zu dieser Datei. Passwort eingeben:" : "Übertragungs-Passwort eingeben:");
+    if (pw == null) throw new Error("Abgebrochen.");
+    let r; try { r = await XFER.dec(j, pw); } catch { throw new Error("Falsches Übertragungs-Passwort."); }
+    onNewPw(pw); return r;
+  },
+};
+
 /* ---------- Austausch mit dem Mac ---------- */
+function setTransferPw(pw){ data.transferPw = pw; save(); }
 $("#toData").onclick = renderData; $("#dBack").onclick = renderHome;
 function renderData(){
   show("data");
   $("#lastExp").textContent = data.lastExport ? "Zuletzt gesendet: " + new Date(data.lastExport).toLocaleString("de-DE") : "Noch nie gesendet.";
   const r = data.rule;
   $("#ruleInfo").textContent = `Mündliche Note wie am Mac: Qualität + ${r.qual["+"]} / 0 ${r.qual["0"]} / − ${r.qual["-"]} Punkte, Aktivität ${r.act[1]}/${r.act[2]}/+${r.act[3]}, Fachsprache +${r.fs}. Wird beim Import der Liste vom Mac übernommen. Die Beteiligung wird am Mac umgerechnet.`;
+  $("#pwInfo").textContent = data.transferPw ? "Ist festgelegt. Die Dateien zum Mac und vom Mac sind damit verschlüsselt." : "Noch nicht festgelegt. Es wird beim ersten Import oder Senden abgefragt.";
+  $("#pwBtn").textContent = data.transferPw ? "Passwort ändern" : "Passwort festlegen";
   $("#storeInfo").textContent = "Die Daten liegen nur auf diesem iPhone. Ist eine Code-Sperre aktiv, verschlüsselt iOS sie automatisch.";
 }
 $("#impList").onclick = () => { const fi = $("#fileIn"); fi.value = ""; fi.onchange = async () => {
   try {
-    const j = JSON.parse(await fi.files[0].text());
+    const j = await XFER.open(JSON.parse(await fi.files[0].text()), data.transferPw, setTransferPw);
     if (j.app !== "mitarbeit-liste") throw new Error("Das ist keine Liste aus dem Mac-Tool.");
     if (j.rule) data.rule = j.rule;
     let n = 0;
@@ -295,8 +338,9 @@ $("#impList").onclick = () => { const fi = $("#fileIn"); fi.value = ""; fi.oncha
 $("#expData").onclick = async () => {
   const payload = { app: "mitarbeit-sport", v: 1, exported: new Date().toISOString(),
     groups: data.groups.map(g => ({ id: g.id, lessons: g.lessons.map(l => ({ id: l.id, date: l.date, created: l.created, entries: l.entries })) })) };
+  if (!data.transferPw){ const pw = XFER.askNew(); if (!pw) return; setTransferPw(pw); }
   const name = `Sport-${today()}.json`;
-  const file = new File([JSON.stringify(payload)], name, { type: "application/json" });
+  const file = new File([JSON.stringify(await XFER.enc(payload, data.transferPw))], name, { type: "application/json" });
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
     else { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; a.click(); }
@@ -304,6 +348,7 @@ $("#expData").onclick = async () => {
     data.lastExport = new Date(now).toISOString(); save(); renderData();
   } catch (e) { if (e.name !== "AbortError") alert("Senden fehlgeschlagen: " + e.message); }
 };
+$("#pwBtn").onclick = () => { const pw = XFER.askNew(); if (pw){ setTransferPw(pw); toast("Gespeichert"); renderData(); } };
 $("#clearSent").onclick = () => {
   const isSent = l => l.sent && (l.modified || l.created || 0) <= l.sent;
   const all = data.groups.flatMap(g => g.lessons), del = all.filter(isSent), keep = all.length - del.length;
