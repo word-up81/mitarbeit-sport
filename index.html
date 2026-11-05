@@ -263,9 +263,17 @@ const L = () => G()?.lessons.find(l => l.id === cur.l);
 function renderHome(){
   show("home");
   $("#groupList").innerHTML = data.groups.length
-    ? data.groups.map(g => `<button data-g="${g.id}"><b>${esc(g.name)}</b><div class="meta">${g.students.length} Schüler · ${g.lessons.length} Stunden</div></button>`).join("")
+    ? data.groups.map(g => `<div class="sw"><span class="swdel" data-delg="${g.id}">Löschen</span><button data-g="${g.id}"><b>${esc(g.name)}</b><div class="meta">${g.students.length} Schüler · ${g.lessons.length} Stunden</div></button></div>`).join("")
     : `<div class="card"><h3>Willkommen</h3><div class="muted">Hole zuerst die Schülerlisten vom Mac: oben rechts auf „Daten“ tippen.</div></div>`;
-  document.querySelectorAll("#groupList [data-g]").forEach(b => b.onclick = () => { cur.g = b.dataset.g; renderGroup(); });
+  document.querySelectorAll("#groupList [data-g]").forEach(b => { b.onclick = () => { if (b.dataset.moved) return; cur.g = b.dataset.g; renderGroup(); }; swipe(b, () => deleteGroup(b.dataset.g)); });
+  document.querySelectorAll("#groupList [data-delg]").forEach(d => d.onclick = () => deleteGroup(d.dataset.delg));
+}
+function deleteGroup(id){
+  const i = data.groups.findIndex(x => x.id === id); if (i < 0) return; const g = data.groups[i];
+  const open = g.lessons.filter(l => Object.keys(l.entries).length && !isSent(l)).length;
+  const hint = open ? `\n\nAchtung: ${open} Stunde(n) mit Noten wurden noch nicht an den Mac gesendet.` : "";
+  if (!confirm(`Lerngruppe „${g.name}“ mit ${g.students.length} Schülern und ${g.lessons.length} Stunden auf diesem iPhone löschen?${hint}\n\nAm Mac wird nichts gelöscht.`)){ renderHome(); return; }
+  remember([{ group: g, index: i }]); data.groups.splice(i, 1); save(); toast("Lerngruppe gelöscht"); renderHome();
 }
 function renderGroup(){
   const g = G(); show("group"); $("#gName").textContent = g.name;
@@ -274,13 +282,13 @@ function renderGroup(){
     const n = Object.keys(l.entries).length;
     return `<div class="sw"><span class="swdel" data-del="${l.id}">Löschen</span><button data-l="${l.id}"><b>${fmtDate(l.date)}</b>${l.topic ? ` · ${esc(l.topic)}` : ""}<div class="meta">${n} Einträge</div></button></div>`;
   }).join("") || `<div class="muted" style="padding:10px 2px">Noch keine Stunden.</div>`;
-  document.querySelectorAll("#lessonList [data-l]").forEach(b => { b.onclick = () => { if (b.dataset.moved) return; cur.l = b.dataset.l; openLesson(); }; swipe(b); });
+  document.querySelectorAll("#lessonList [data-l]").forEach(b => { b.onclick = () => { if (b.dataset.moved) return; cur.l = b.dataset.l; openLesson(); }; swipe(b, () => deleteLesson(b.dataset.l)); });
   document.querySelectorAll("#lessonList [data-del]").forEach(d => d.onclick = () => deleteLesson(d.dataset.del));
 }
 /* Wischen nach links: Löschen-Knopf freilegen */
 const SWW = 96;
-function closeSwipes(except){ document.querySelectorAll("#lessonList .sw button").forEach(b => { if (b !== except){ b.style.transform = ""; b.classList.remove("open"); } }); }
-function swipe(b){
+function closeSwipes(except){ document.querySelectorAll(".sw button").forEach(b => { if (b !== except){ b.style.transform = ""; b.classList.remove("open"); } }); }
+function swipe(b, onDel){
   let x0 = 0, y0 = 0, dx = 0, base = 0, dir = null;
   b.addEventListener("touchstart", e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; dir = null; base = b.classList.contains("open") ? -SWW : 0; delete b.dataset.moved; b.style.transition = "none"; closeSwipes(b); }, { passive: true });
   b.addEventListener("touchmove", e => {
@@ -294,7 +302,7 @@ function swipe(b){
     b.style.transition = "";
     if (dir !== "h"){ if (base){ b.style.transform = ""; b.classList.remove("open"); b.dataset.moved = "1"; } return; }
     const pos = base + dx;
-    if (pos < -SWW * 1.4){ b.style.transform = ""; deleteLesson(b.dataset.l); }
+    if (pos < -SWW * 1.4){ b.style.transform = ""; onDel(); }
     else if (pos < -SWW / 2){ b.style.transform = `translateX(${-SWW}px)`; b.classList.add("open"); }
     else { b.style.transform = ""; b.classList.remove("open"); }
     setTimeout(() => delete b.dataset.moved, 50);
@@ -469,7 +477,7 @@ function renderData(){
   show("data");
   const d = data.lastDeleted, ub = $("#undoDel");
   ub.classList.toggle("hidden", !d);
-  if (d) ub.textContent = `Letzte Löschung rückgängig (${d.items.length} Stunde${d.items.length === 1 ? "" : "n"}, ${new Date(d.at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`;
+  if (d) ub.textContent = `Letzte Löschung rückgängig (${d.items[0]?.group ? "Gruppe " + d.items[0].group.name : d.items.length + " Stunde" + (d.items.length === 1 ? "" : "n")}, ${new Date(d.at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`;
   $("#lastExp").textContent = data.lastExport ? "Zuletzt gesendet: " + new Date(data.lastExport).toLocaleString("de-DE") : "Noch nie gesendet.";
   const r = data.rule;
   $("#ruleInfo").textContent = `Mündliche Note wie am Mac: Qualität + ${r.qual["+"]} / 0 ${r.qual["0"]} / − ${r.qual["-"]} Punkte, Aktivität ${r.act[1]}/${r.act[2]}/+${r.act[3]}, Fachsprache +${r.fs}. Wird beim Import der Liste vom Mac übernommen. Die Beteiligung wird am Mac umgerechnet.`;
@@ -517,11 +525,13 @@ function remember(items){ data.lastDeleted = { at: Date.now(), items }; }
 $("#undoDel").onclick = () => {
   const d = data.lastDeleted; if (!d) return;
   let n = 0;
-  for (const { g: gid, l } of d.items){
-    const g = data.groups.find(x => x.id === gid); if (!g || g.lessons.some(x => x.id === l.id)) continue;
-    g.lessons.push(l); n++;
+  for (const it of d.items){
+    if (it.group){ if (!data.groups.some(x => x.id === it.group.id)){ data.groups.splice(Math.min(it.index, data.groups.length), 0, it.group); n++; } continue; }
+    const g = data.groups.find(x => x.id === it.g); if (!g || g.lessons.some(x => x.id === it.l.id)) continue;
+    g.lessons.push(it.l); n++;
   }
-  delete data.lastDeleted; save(); toast(`${n} Stunde(n) wiederhergestellt`); renderData();
+  const what = d.items[0]?.group ? `Lerngruppe „${d.items[0].group.name}“` : `${n} Stunde(n)`;
+  delete data.lastDeleted; save(); toast(n ? `${what} wiederhergestellt` : "Nichts wiederherzustellen"); renderData();
 };
 $("#wipeBtn").onclick = () => {
   if (!confirm("Wirklich alle Sport-Daten auf diesem iPhone löschen? Vorher an den Mac senden!")) return;
