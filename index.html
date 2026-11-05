@@ -142,6 +142,9 @@ input::placeholder{color:#7a7a7a}
 .sw{position:relative;margin:8px 0;border-radius:8px;overflow:hidden;background:var(--panel)}
 .sw button{margin:0!important;border-radius:0!important;position:relative;z-index:1;transition:transform .2s ease;touch-action:pan-y}
 .swdel{position:absolute;right:0;top:0;bottom:0;width:100%;padding-right:22px;justify-content:flex-end!important;background:#e5484d;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.seg.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.seg button.small{padding:0 6px;font-size:14px;line-height:1.15}
+#oralSel{width:100%;height:52px;border-radius:999px;background:#2a2a2a;color:#fff;border:2px solid transparent;font:inherit;font-size:17px;font-weight:700;padding:0 18px;-webkit-appearance:none;appearance:none}
+#oralSel.manual{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
@@ -187,13 +190,14 @@ input::placeholder{color:#7a7a7a}
   <div class="erow"><div class="seg c3" id="statusSeg">
     <button class="small" data-s="absent">abwesend</button>
     <button class="small" data-s="forgot">Sachen vergessen</button>
-    <button class="small" data-s="excused">entschuldigt</button>
+    <button class="small" data-s="excused">entschul&shy;digt</button>
   </div></div>
   <div id="grading">
     <div class="erow"><div class="lab"><span>Aktivität (mehrmals tippen)</span></div><button id="actBtn" data-v="0">–</button></div>
     <div class="erow"><div class="lab"><span>Qualität</span></div><div class="seg c3" id="qualSeg">
       <button data-v="+">+</button><button data-v="0">0</button><button data-v="-">−</button></div></div>
     <div class="erow"><div class="seg" style="grid-template-columns:1fr"><button class="small" id="fsBtn">Fachsprache</button></div></div>
+    <div class="erow"><div class="lab"><span>Mündliche Note</span></div><select id="oralSel"></select></div>
     <div class="erow" id="partRow"><div class="lab"><span>Beteiligung</span></div><div class="seg c3" id="partSeg">
       <button data-v="+">+</button><button data-v="0">0</button><button data-v="-">−</button></div></div>
   </div>
@@ -249,7 +253,9 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 
 function oralPoints(e){
   const r = data.rule;
-  if (!e || e.absent || (!e.act && !e.qual)) return null;
+  if (!e || e.absent) return null;
+  if (e.oral != null) return e.oral;
+  if (!e.act && !e.qual) return null;
   return Math.max(0, Math.min(15, r.qual[e.qual || "0"] + (e.act ? r.act[e.act] : 0) + (e.fs ? r.fs : 0)));
 }
 const GRADE = ["6","5-","5","5+","4-","4","4+","3-","3","3+","2-","2","2+","1-","1","1+"];
@@ -408,7 +414,7 @@ function renderListRow(sid){
 
 /* ---------- Eingabe ---------- */
 function E(){ const l = L(); return l.entries[cur.s] || (l.entries[cur.s] = { act: 0, qual: null, fs: false, part: null, absent: false, forgot: false, excused: false, note: "" }); }
-function cleanup(){ const l = L(), e = l.entries[cur.s]; if (e && !e.act && !e.qual && !e.fs && !e.part && !e.absent && !e.forgot && !e.excused && !e.note) delete l.entries[cur.s]; }
+function cleanup(){ const l = L(), e = l.entries[cur.s]; if (e && !e.act && !e.qual && !e.fs && !e.part && !e.absent && !e.forgot && !e.excused && !e.note && e.oral == null) delete l.entries[cur.s]; }
 function openEntry(sid){ cur.s = sid; show("entry"); const g = G(), s = g.students.find(x => x.id === sid); $("#eName").textContent = `${s.first} ${s.last}`; $("#noteIn").value = L().entries[sid]?.note || ""; renderEntry(); }
 function renderEntry(){
   const e = L().entries[cur.s] || {};
@@ -420,7 +426,10 @@ function renderEntry(){
   document.querySelectorAll("#qualSeg button").forEach(b => { b.className = e.qual === b.dataset.v ? cls[b.dataset.v] : ""; });
   document.querySelectorAll("#partSeg button").forEach(b => { b.className = e.part === b.dataset.v ? cls[b.dataset.v] : ""; });
   $("#fsBtn").className = "small " + (e.fs ? "on-acc" : ""); $("#fsBtn").textContent = e.fs ? "✓ Fachsprache" : "Fachsprache";
-  const o = oralPoints(e); $("#ePts").textContent = o == null ? "" : `mündlich ${GRADE[o]}`;
+  const o = oralPoints(e); $("#ePts").textContent = o == null ? "" : `mündlich ${GRADE[o]}${e.oral != null ? " (manuell)" : ""}`;
+  const auto = oralPoints({ ...e, oral: null }), sel = $("#oralSel");
+  sel.innerHTML = `<option value="">automatisch${auto == null ? "" : ": " + GRADE[auto]}</option>` + GRADE.map((gr, p) => [gr, p]).reverse().map(([gr, p]) => `<option value="${p}">${gr} (${p} P.)</option>`).join("");
+  sel.value = e.oral == null ? "" : String(e.oral); sel.classList.toggle("manual", e.oral != null);
 }
 const touch = () => { L().modified = Date.now(); };
 const upd = fn => { fn(E()); cleanup(); touch(); save(); renderEntry(); };
@@ -428,6 +437,7 @@ document.querySelectorAll("#statusSeg button").forEach(b => b.onclick = () => up
 $("#actBtn").onclick = () => upd(e => { e.act = ((e.act || 0) + 1) % 4; });
 document.querySelectorAll("#qualSeg button").forEach(b => b.onclick = () => upd(e => { e.qual = e.qual === b.dataset.v ? null : b.dataset.v; }));
 document.querySelectorAll("#partSeg button").forEach(b => b.onclick = () => upd(e => { e.part = e.part === b.dataset.v ? null : b.dataset.v; }));
+$("#oralSel").onchange = ev => upd(e => { e.oral = ev.target.value === "" ? null : +ev.target.value; });
 $("#fsBtn").onclick = () => upd(e => { e.fs = !e.fs; });
 $("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); touch(); save(); };
 const back = () => { $("#noteIn").blur(); if (entryFrom === "list"){ entryFrom = "lesson"; renderList(); } else openLesson(); };
