@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sport">
 <meta name="theme-color" content="#f6f7f9">
 <link rel="manifest" href="manifest.webmanifest">
@@ -42,7 +42,8 @@ button:active{transform:scale(.97)}
 #pad button small{font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted);margin-top:3px}
 #pad .fn{font-size:17px;background:#eef0f3}
 /* Eingabe */
-#entry{background:var(--bg)}
+#entry{background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+@media (max-height:700px){.seg button{height:48px}#actBtn{height:52px}.erow{margin-top:8px}.ename{font-size:22px}#pad button{height:52px}}
 .ename{font-size:26px;font-weight:700;margin:4px 0 2px}
 .erow{margin:12px 0 0}
 .erow .lab{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
@@ -59,12 +60,27 @@ button:active{transform:scale(.97)}
 #actBtn[data-v="1"]{background:#eef2fd}#actBtn[data-v="2"]{background:#d7e1fa}#actBtn[data-v="3"]{background:#b5c7f5}
 #noteIn{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;font-size:17px}
 .disabled{opacity:.35;pointer-events:none}
-#doneBtn{width:100%;height:58px;font-size:20px;margin-top:auto}
+#doneBtn{width:100%;height:58px;font-size:20px;margin-top:auto;flex-shrink:0}
+#entry > *{flex-shrink:0}
+#entry .erow:last-of-type{margin-bottom:12px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
 .card h3{margin:0 0 8px;font-size:17px}
 .card button{width:100%;margin-top:8px}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 90px);transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;font-size:15px;white-space:nowrap}
 .toast.show{opacity:.95}
+#listRows{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:10px}
+.lrow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 10px;margin:8px 0}
+.lrow.abs{background:var(--abs-soft)}
+.lrow .l1{display:flex;align-items:center;gap:6px}
+.lrow .nm{flex:1;font-weight:600;font-size:17px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow .nm small{font-weight:400;color:var(--muted);font-size:13px}
+.lrow .chip{font-size:12px;padding:5px 7px;border-radius:9px}
+.lrow .l2{display:flex;align-items:center;gap:5px;margin-top:7px}
+.lrow .l2 button{height:38px;min-width:34px;padding:0 6px;font-weight:700;font-size:17px;border-radius:9px}
+.lrow .l2 .sep{width:1px;height:26px;background:var(--line);margin:0 2px}
+.lrow .l2 .lbl{font-size:12px;color:var(--muted);font-weight:600}
+.lrow .l2 button.act[data-v="1"]{background:#eef2fd}.lrow .l2 button.act[data-v="2"]{background:#d7e1fa}.lrow .l2 button.act[data-v="3"]{background:#b5c7f5}
+.lrow.abs .l2{opacity:.35;pointer-events:none}
 input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
 </style>
 </head>
@@ -89,10 +105,18 @@ input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px
   <div class="top">
     <button class="link" id="lBack">‹</button>
     <div style="flex:1;min-width:0"><h1 id="lName"></h1><div class="sub"><input type="date" id="lDate"> · <span id="lCount"></span></div></div>
+    <button id="toList">Liste</button>
   </div>
   <div id="hits"></div>
   <div id="typed"></div>
   <div id="pad"></div>
+</div>
+
+<!-- Stunde: Liste aller Schüler (zum Bewerten nach der Stunde) -->
+<div class="screen hidden" id="list">
+  <div class="top"><button class="link" id="listBack">‹ Suche</button><h1 id="listTitle"></h1><span class="sub" id="listCount"></span></div>
+  <div class="muted" style="font-size:13px">Akt. = mehrmals tippen · Qualität + 0 − · FS · B = Beteiligung · Name antippen für Notiz</div>
+  <div id="listRows"></div>
 </div>
 
 <!-- Eingabe für einen Schüler -->
@@ -245,6 +269,41 @@ function badge(e){
   return p.join(" · ");
 }
 
+/* ---------- Liste ---------- */
+let entryFrom = "lesson";
+$("#toList").onclick = renderList;
+$("#listBack").onclick = openLesson;
+function renderList(){
+  const g = G(), l = L(); show("list");
+  $("#listTitle").textContent = `${g.name}, ${fmtDate(l.date)}`;
+  $("#listCount").textContent = `${Object.keys(l.entries).length}/${g.students.length}`;
+  const sorted = [...g.students].sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
+  $("#listRows").innerHTML = sorted.map(s => `<div class="lrow" data-s="${s.id}"></div>`).join("");
+  sorted.forEach(s => renderListRow(s.id));
+}
+function renderListRow(sid){
+  const g = G(), l = L(), s = g.students.find(x => x.id === sid), e = l.entries[sid] || {};
+  const row = document.querySelector(`.lrow[data-s="${sid}"]`); if (!row) return;
+  const cls = { "+": "on-good", "0": "on-mid", "-": "on-bad" }, sym = v => v === "-" ? "−" : v;
+  row.className = "lrow" + (e.absent ? " abs" : "");
+  row.innerHTML = `<div class="l1"><div class="nm" data-open>${esc(displayName(g, s))} <small>${esc(s.last)}</small>${e.note ? " ✎" : ""}</div>
+      <button class="chip ${e.absent ? "on-abs" : ""}" data-t="absent">abw.</button>
+      <button class="chip ${e.forgot ? "on-mid" : ""}" data-t="forgot">verg.</button>
+      <button class="chip ${e.excused ? "on-mid" : ""}" data-t="excused">ent.</button></div>
+    <div class="l2"><button class="act" data-v="${e.act || 0}" style="min-width:44px">${e.act || '<span style="font-size:12px;font-weight:600;color:var(--muted)">Akt</span>'}</button>
+      ${["+","0","-"].map(v => `<button data-q="${v}" class="${e.qual === v ? cls[v] : ""}">${sym(v)}</button>`).join("")}
+      <button data-fs class="${e.fs ? "on-acc" : ""}" style="font-size:13px">FS</button>
+      <span class="sep"></span><span class="lbl">B</span>
+      ${["+","0","-"].map(v => `<button data-p="${v}" class="${e.part === v ? cls[v] : ""}" ${e.forgot || e.excused ? "disabled style='opacity:.35'" : ""}>${sym(v)}</button>`).join("")}</div>`;
+  const u = fn => { cur.s = sid; fn(E()); cleanup(); touch(); save(); renderListRow(sid); $("#listCount").textContent = `${Object.keys(L().entries).length}/${G().students.length}`; };
+  row.querySelector("[data-open]").onclick = () => { entryFrom = "list"; openEntry(sid); };
+  row.querySelectorAll("[data-t]").forEach(b => b.onclick = () => u(x => { const k = b.dataset.t; x[k] = !x[k]; if (k === "absent" && x.absent){ x.forgot = x.excused = false; } else if (x[k]) x.absent = false; }));
+  row.querySelector(".act").onclick = () => u(x => { x.act = ((x.act || 0) + 1) % 4; });
+  row.querySelectorAll("[data-q]").forEach(b => b.onclick = () => u(x => { x.qual = x.qual === b.dataset.q ? null : b.dataset.q; }));
+  row.querySelectorAll("[data-p]").forEach(b => b.onclick = () => u(x => { x.part = x.part === b.dataset.p ? null : b.dataset.p; }));
+  row.querySelector("[data-fs]").onclick = () => u(x => { x.fs = !x.fs; });
+}
+
 /* ---------- Eingabe ---------- */
 function E(){ const l = L(); return l.entries[cur.s] || (l.entries[cur.s] = { act: 0, qual: null, fs: false, part: null, absent: false, forgot: false, excused: false, note: "" }); }
 function cleanup(){ const l = L(), e = l.entries[cur.s]; if (e && !e.act && !e.qual && !e.fs && !e.part && !e.absent && !e.forgot && !e.excused && !e.note) delete l.entries[cur.s]; }
@@ -269,7 +328,7 @@ document.querySelectorAll("#qualSeg button").forEach(b => b.onclick = () => upd(
 document.querySelectorAll("#partSeg button").forEach(b => b.onclick = () => upd(e => { e.part = e.part === b.dataset.v ? null : b.dataset.v; }));
 $("#fsBtn").onclick = () => upd(e => { e.fs = !e.fs; });
 $("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); touch(); save(); };
-const back = () => { $("#noteIn").blur(); openLesson(); };
+const back = () => { $("#noteIn").blur(); if (entryFrom === "list"){ entryFrom = "lesson"; renderList(); } else openLesson(); };
 $("#doneBtn").onclick = back; $("#eBack").onclick = back;
 
 /* Verschlüsselung der Übertragungsdateien (AES-256-GCM, Schlüssel aus Passwort via PBKDF2) */
