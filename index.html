@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sport">
+<meta name="theme-color" content="#f6f7f9">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Sport</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#6b7280;--line:#e3e6eb;--accent:#2f5bd3;--accent-soft:#e6ecfb;
+  --good:#1f8a4c;--good-soft:#e3f4ea;--mid:#9a6b00;--mid-soft:#fbf1d9;--bad:#c0392b;--bad-soft:#fbe6e3;--abs:#6b7280;--abs-soft:#e6e8ec}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+button,input,select{font:inherit;color:inherit}
+button{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:10px 14px;cursor:pointer;touch-action:manipulation}
+button:active{transform:scale(.97)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 8px) 12px calc(env(safe-area-inset-bottom) + 10px)}
+.hidden{display:none!important}
+.top{display:flex;align-items:center;gap:8px;min-height:44px}
+.top h1{font-size:19px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sub{font-size:14px;color:var(--muted)}
+.link{border:none;background:none;color:var(--accent);padding:8px 6px}
+.muted{color:var(--muted)}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.list button{display:block;width:100%;text-align:left;margin:8px 0;padding:16px}
+.list .meta{font-size:14px;color:var(--muted)}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+/* Stunde: Treffer + T9 */
+#hits{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;overflow-y:auto;padding:6px 0}
+#hits button{padding:14px 10px;font-size:19px;font-weight:600;text-align:left;min-height:62px;position:relative}
+#hits button small{display:block;font-size:13px;font-weight:400;color:var(--muted)}
+#hits button.done{border-color:#bccbf3;background:var(--accent-soft)}
+#hits button .badge{position:absolute;top:6px;right:8px;font-size:12px;font-weight:600;color:var(--muted)}
+#typed{text-align:center;font-size:15px;color:var(--muted);min-height:22px;letter-spacing:.15em}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#pad button{height:62px;font-size:26px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+#pad button small{font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--muted);margin-top:3px}
+#pad .fn{font-size:17px;background:#eef0f3}
+/* Eingabe */
+#entry{background:var(--bg)}
+.ename{font-size:26px;font-weight:700;margin:4px 0 2px}
+.erow{margin:12px 0 0}
+.erow .lab{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+.seg{display:grid;gap:8px}
+.seg.c3{grid-template-columns:repeat(3,1fr)}
+.seg button{height:58px;font-size:22px;font-weight:700}
+.seg button.small{font-size:15px;font-weight:600}
+.on-good{background:var(--good-soft)!important;color:var(--good)!important;border-color:#a9dcbd!important}
+.on-mid{background:var(--mid-soft)!important;color:var(--mid)!important;border-color:#ecd391!important}
+.on-bad{background:var(--bad-soft)!important;color:var(--bad)!important;border-color:#efb7ae!important}
+.on-acc{background:var(--accent-soft)!important;color:var(--accent)!important;border-color:#bccbf3!important}
+.on-abs{background:var(--abs)!important;color:#fff!important;border-color:var(--abs)!important}
+#actBtn{width:100%;height:64px;font-size:28px;font-weight:800}
+#actBtn[data-v="1"]{background:#eef2fd}#actBtn[data-v="2"]{background:#d7e1fa}#actBtn[data-v="3"]{background:#b5c7f5}
+#noteIn{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;font-size:17px}
+.disabled{opacity:.35;pointer-events:none}
+#doneBtn{width:100%;height:58px;font-size:20px;margin-top:auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.card h3{margin:0 0 8px;font-size:17px}
+.card button{width:100%;margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 90px);transform:translateX(-50%);background:#1d2330;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;font-size:15px;white-space:nowrap}
+.toast.show{opacity:.95}
+input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
+</style>
+</head>
+<body>
+
+<!-- Start: Lerngruppen -->
+<div class="screen" id="home">
+  <div class="top"><h1>Sport</h1><button class="link" id="toData">Daten</button></div>
+  <div class="scroll list" id="groupList"></div>
+</div>
+
+<!-- Lerngruppe: Stunden -->
+<div class="screen hidden" id="group">
+  <div class="top"><button class="link" id="gBack">‹ Gruppen</button><h1 id="gName"></h1></div>
+  <button class="primary" id="todayBtn" style="padding:18px;font-size:19px;margin:8px 0">Stunde heute</button>
+  <div class="muted" style="font-size:14px;margin-top:8px">Frühere Stunden</div>
+  <div class="scroll list" id="lessonList"></div>
+</div>
+
+<!-- Stunde: T9-Suche -->
+<div class="screen hidden" id="lesson">
+  <div class="top">
+    <button class="link" id="lBack">‹</button>
+    <div style="flex:1;min-width:0"><h1 id="lName"></h1><div class="sub"><input type="date" id="lDate"> · <span id="lCount"></span></div></div>
+  </div>
+  <div id="hits"></div>
+  <div id="typed"></div>
+  <div id="pad"></div>
+</div>
+
+<!-- Eingabe für einen Schüler -->
+<div class="screen hidden" id="entry">
+  <div class="top"><button class="link" id="eBack">‹ Suche</button><div style="flex:1"></div><span class="sub" id="ePts"></span></div>
+  <div class="ename" id="eName"></div>
+  <div class="erow"><div class="seg c3" id="statusSeg">
+    <button class="small" data-s="absent">abwesend</button>
+    <button class="small" data-s="forgot">Sachen vergessen</button>
+    <button class="small" data-s="excused">entschuldigt</button>
+  </div></div>
+  <div id="grading">
+    <div class="erow"><div class="lab"><span>Aktivität (mehrmals tippen)</span></div><button id="actBtn" data-v="0">–</button></div>
+    <div class="erow"><div class="lab"><span>Qualität</span></div><div class="seg c3" id="qualSeg">
+      <button data-v="+">+</button><button data-v="0">0</button><button data-v="-">−</button></div></div>
+    <div class="erow"><div class="seg" style="grid-template-columns:1fr"><button class="small" id="fsBtn">Fachsprache</button></div></div>
+    <div class="erow" id="partRow"><div class="lab"><span>Beteiligung</span></div><div class="seg c3" id="partSeg">
+      <button data-v="+">+</button><button data-v="0">0</button><button data-v="-">−</button></div></div>
+  </div>
+  <div class="erow"><input id="noteIn" placeholder="Notiz" autocomplete="off"></div>
+  <button class="primary" id="doneBtn">Fertig</button>
+</div>
+
+<!-- Daten / Austausch mit dem Mac -->
+<div class="screen hidden" id="data">
+  <div class="top"><button class="link" id="dBack">‹ Gruppen</button><h1>Daten</h1></div>
+  <div class="scroll">
+    <div class="card"><h3>1. Schülerlisten vom Mac holen</h3>
+      <div class="muted" style="font-size:15px">Im Mac-Tool „Liste fürs iPhone“ exportieren, per AirDrop schicken und hier auswählen.</div>
+      <button id="impList">Liste importieren …</button></div>
+    <div class="card"><h3>2. Noten zum Mac schicken</h3>
+      <div class="muted" style="font-size:15px">Erstellt eine Datei mit allen Stunden. Im Teilen-Menü AirDrop → dein Mac wählen, dann im Mac-Tool „iPhone-Daten importieren“. Mehrfaches Senden ist kein Problem.</div>
+      <button class="primary" id="expData">An Mac senden …</button>
+      <div class="muted" style="font-size:14px;margin-top:8px" id="lastExp"></div></div>
+    <div class="card"><h3>Einstellungen</h3>
+      <div class="muted" style="font-size:15px" id="ruleInfo"></div></div>
+    <div class="card"><h3>Gerät</h3>
+      <div class="muted" style="font-size:15px" id="storeInfo"></div>
+      <button id="wipeBtn" style="color:var(--bad)">Alle Daten auf diesem iPhone löschen</button></div>
+  </div>
+</div>
+
+<input type="file" id="fileIn" class="hidden" accept=".json,application/json">
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); };
+const fmtDate = s => { const [y,m,d] = s.split("-"); const wd = ["So","Mo","Di","Mi","Do","Fr","Sa"][new Date(+y, m-1, +d).getDay()]; return `${wd}, ${d}.${m}.`; };
+function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2000); }
+
+/* ---------- Speicher (nur auf diesem Gerät) ---------- */
+const KEY = "mitarbeit-sport-v1";
+let data;
+try { data = JSON.parse(localStorage.getItem(KEY)) || null; } catch { data = null; }
+if (!data) data = { groups: [], lastExport: null, rule: { qual: { "+": 11, "0": 8, "-": 5 }, act: { 1: -1, 2: 0, 3: 2 }, fs: 1 } };
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { alert("Speichern fehlgeschlagen: " + e.message); } }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+function oralPoints(e){
+  const r = data.rule;
+  if (!e || e.absent || (!e.act && !e.qual)) return null;
+  return Math.max(0, Math.min(15, r.qual[e.qual || "0"] + (e.act ? r.act[e.act] : 0) + (e.fs ? r.fs : 0)));
+}
+const GRADE = ["6","5-","5","5+","4-","4","4+","3-","3","3+","2-","2","2+","1-","1","1+"];
+
+/* ---------- Navigation ---------- */
+let cur = { g: null, l: null, s: null }, typed = "";
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.toggle("hidden", s.id !== id)); }
+const G = () => data.groups.find(g => g.id === cur.g);
+const L = () => G()?.lessons.find(l => l.id === cur.l);
+
+function renderHome(){
+  show("home");
+  $("#groupList").innerHTML = data.groups.length
+    ? data.groups.map(g => `<button data-g="${g.id}"><b>${esc(g.name)}</b><div class="meta">${g.students.length} Schüler · ${g.lessons.length} Stunden</div></button>`).join("")
+    : `<div class="card"><h3>Willkommen</h3><div class="muted">Hole zuerst die Schülerlisten vom Mac: oben rechts auf „Daten“ tippen.</div></div>`;
+  document.querySelectorAll("#groupList [data-g]").forEach(b => b.onclick = () => { cur.g = b.dataset.g; renderGroup(); });
+}
+function renderGroup(){
+  const g = G(); show("group"); $("#gName").textContent = g.name;
+  const ls = [...g.lessons].sort((a, b) => b.date.localeCompare(a.date));
+  $("#lessonList").innerHTML = ls.map(l => {
+    const n = Object.keys(l.entries).length;
+    return `<button data-l="${l.id}"><b>${fmtDate(l.date)}</b><div class="meta">${n} Einträge</div></button>`;
+  }).join("") || `<div class="muted" style="padding:10px 2px">Noch keine Stunden.</div>`;
+  document.querySelectorAll("#lessonList [data-l]").forEach(b => b.onclick = () => { cur.l = b.dataset.l; openLesson(); });
+}
+$("#todayBtn").onclick = () => {
+  const g = G(); let l = g.lessons.find(x => x.date === today());
+  if (!l){ l = { id: uid(), date: today(), created: Date.now(), entries: {} }; g.lessons.push(l); save(); }
+  cur.l = l.id; openLesson();
+};
+$("#gBack").onclick = renderHome;
+$("#lBack").onclick = renderGroup;
+
+/* ---------- T9-Suche ---------- */
+const KEYS = [["2","ABC"],["3","DEF"],["4","GHI"],["5","JKL"],["6","MNO"],["7","PQRS"],["8","TUV"],["9","WXYZ"]];
+const DIGIT = {}; KEYS.forEach(([d, ls]) => [...ls].forEach(c => DIGIT[c.toLowerCase()] = d));
+const norm = s => s.toLowerCase().replace(/ß/g, "ss").normalize("NFD").replace(/[̀-ͯ]/g, "");
+const t9 = s => [...norm(s)].map(c => DIGIT[c] || "").join("");
+function displayName(g, s){
+  const same = g.students.filter(x => x.first === s.first).length > 1;
+  return same ? `${s.first} ${s.last[0]}.` : s.first;
+}
+$("#pad").innerHTML = KEYS.map(([d, ls]) => `<button data-d="${d}">${d}<small>${ls}</small></button>`).join("")
+  + `<button class="fn" data-f="all">Alle</button><button class="fn" data-f="del">⌫</button><button class="fn" data-f="clr">C</button>`;
+document.querySelectorAll("#pad button").forEach(b => b.onclick = () => {
+  if (b.dataset.d) typed += b.dataset.d;
+  else if (b.dataset.f === "del") typed = typed.slice(0, -1);
+  else if (b.dataset.f === "clr") typed = "";
+  else if (b.dataset.f === "all") typed = "*";
+  renderHits(true);
+});
+function openLesson(){
+  const g = G(), l = L(); typed = ""; show("lesson");
+  $("#lName").textContent = g.name; $("#lDate").value = l.date;
+  renderHits(false);
+}
+$("#lDate").onchange = e => { if (e.target.value){ L().date = e.target.value; save(); } };
+function renderHits(fromKey){
+  const g = G(), l = L();
+  const done = Object.keys(l.entries).length;
+  $("#lCount").textContent = `${done}/${g.students.length} erfasst`;
+  $("#typed").textContent = typed === "*" ? "alle" : typed.split("").map(d => KEYS.find(k => k[0] === d)[1][0] + "…").join(" ") || "Vorname über die Tasten";
+  let hits = [];
+  if (typed === "*") hits = [...g.students].sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
+  else if (typed) hits = g.students.filter(s => t9(s.first).startsWith(typed)).sort((a, b) => norm(a.first).localeCompare(norm(b.first)));
+  if (fromKey && typed && typed !== "*" && hits.length === 1){ openEntry(hits[0].id); return; }
+  $("#hits").innerHTML = (typed && !hits.length) ? `<div class="muted" style="grid-column:1/-1;padding:10px">Kein Name passt. ⌫ oder C tippen.</div>`
+    : hits.map(s => { const e = l.entries[s.id]; const b = badge(e);
+      return `<button data-s="${s.id}" class="${e ? "done" : ""}">${esc(displayName(g, s))}<small>${esc(s.last)}</small>${b ? `<span class="badge">${b}</span>` : ""}</button>`; }).join("");
+  document.querySelectorAll("#hits [data-s]").forEach(b => b.onclick = () => openEntry(b.dataset.s));
+}
+function badge(e){
+  if (!e) return "";
+  if (e.absent) return "abw.";
+  const p = []; if (e.forgot) p.push("vergessen"); if (e.excused) p.push("entsch.");
+  const o = oralPoints(e); if (o != null) p.push(GRADE[o]);
+  if (e.part) p.push("B" + (e.part === "-" ? "−" : e.part));
+  return p.join(" · ");
+}
+
+/* ---------- Eingabe ---------- */
+function E(){ const l = L(); return l.entries[cur.s] || (l.entries[cur.s] = { act: 0, qual: null, fs: false, part: null, absent: false, forgot: false, excused: false, note: "" }); }
+function cleanup(){ const l = L(), e = l.entries[cur.s]; if (e && !e.act && !e.qual && !e.fs && !e.part && !e.absent && !e.forgot && !e.excused && !e.note) delete l.entries[cur.s]; }
+function openEntry(sid){ cur.s = sid; show("entry"); const g = G(), s = g.students.find(x => x.id === sid); $("#eName").textContent = `${s.first} ${s.last}`; $("#noteIn").value = L().entries[sid]?.note || ""; renderEntry(); }
+function renderEntry(){
+  const e = L().entries[cur.s] || {};
+  document.querySelectorAll("#statusSeg button").forEach(b => b.classList.toggle(b.dataset.s === "absent" ? "on-abs" : "on-mid", !!e[b.dataset.s]));
+  $("#grading").classList.toggle("disabled", !!e.absent);
+  $("#partRow").classList.toggle("disabled", !!(e.forgot || e.excused));
+  $("#actBtn").dataset.v = e.act || 0; $("#actBtn").textContent = e.act || "–";
+  const cls = { "+": "on-good", "0": "on-mid", "-": "on-bad" };
+  document.querySelectorAll("#qualSeg button").forEach(b => { b.className = e.qual === b.dataset.v ? cls[b.dataset.v] : ""; });
+  document.querySelectorAll("#partSeg button").forEach(b => { b.className = e.part === b.dataset.v ? cls[b.dataset.v] : ""; });
+  $("#fsBtn").className = "small " + (e.fs ? "on-acc" : ""); $("#fsBtn").textContent = e.fs ? "✓ Fachsprache" : "Fachsprache";
+  const o = oralPoints(e); $("#ePts").textContent = o == null ? "" : `mündlich ${GRADE[o]}`;
+}
+const upd = fn => { fn(E()); cleanup(); save(); renderEntry(); };
+document.querySelectorAll("#statusSeg button").forEach(b => b.onclick = () => upd(e => { e[b.dataset.s] = !e[b.dataset.s]; if (b.dataset.s === "absent" && e.absent){ e.forgot = e.excused = false; } else if (e[b.dataset.s]) e.absent = false; }));
+$("#actBtn").onclick = () => upd(e => { e.act = ((e.act || 0) + 1) % 4; });
+document.querySelectorAll("#qualSeg button").forEach(b => b.onclick = () => upd(e => { e.qual = e.qual === b.dataset.v ? null : b.dataset.v; }));
+document.querySelectorAll("#partSeg button").forEach(b => b.onclick = () => upd(e => { e.part = e.part === b.dataset.v ? null : b.dataset.v; }));
+$("#fsBtn").onclick = () => upd(e => { e.fs = !e.fs; });
+$("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); save(); };
+const back = () => { $("#noteIn").blur(); openLesson(); };
+$("#doneBtn").onclick = back; $("#eBack").onclick = back;
+
+/* ---------- Austausch mit dem Mac ---------- */
+$("#toData").onclick = renderData; $("#dBack").onclick = renderHome;
+function renderData(){
+  show("data");
+  $("#lastExp").textContent = data.lastExport ? "Zuletzt gesendet: " + new Date(data.lastExport).toLocaleString("de-DE") : "Noch nie gesendet.";
+  const r = data.rule;
+  $("#ruleInfo").textContent = `Mündliche Note wie am Mac: Qualität + ${r.qual["+"]} / 0 ${r.qual["0"]} / − ${r.qual["-"]} Punkte, Aktivität ${r.act[1]}/${r.act[2]}/+${r.act[3]}, Fachsprache +${r.fs}. Wird beim Import der Liste vom Mac übernommen. Die Beteiligung wird am Mac umgerechnet.`;
+  $("#storeInfo").textContent = "Die Daten liegen nur auf diesem iPhone. Ist eine Code-Sperre aktiv, verschlüsselt iOS sie automatisch.";
+}
+$("#impList").onclick = () => { const fi = $("#fileIn"); fi.value = ""; fi.onchange = async () => {
+  try {
+    const j = JSON.parse(await fi.files[0].text());
+    if (j.app !== "mitarbeit-liste") throw new Error("Das ist keine Liste aus dem Mac-Tool.");
+    if (j.rule) data.rule = j.rule;
+    let n = 0;
+    for (const ng of j.groups){
+      let g = data.groups.find(x => x.id === ng.id);
+      if (!g){ g = { id: ng.id, name: ng.name, students: [], lessons: [] }; data.groups.push(g); }
+      g.name = ng.name; g.students = ng.students.map(s => ({ id: s.id, last: s.last, first: s.first })); n++;
+    }
+    save(); toast(`${n} Lerngruppe(n) übernommen`); renderHome();
+  } catch (e) { alert("Import fehlgeschlagen: " + e.message); }
+}; fi.click(); };
+$("#expData").onclick = async () => {
+  const payload = { app: "mitarbeit-sport", v: 1, exported: new Date().toISOString(),
+    groups: data.groups.map(g => ({ id: g.id, lessons: g.lessons.map(l => ({ id: l.id, date: l.date, created: l.created, entries: l.entries })) })) };
+  const name = `Sport-${today()}.json`;
+  const file = new File([JSON.stringify(payload)], name, { type: "application/json" });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
+    else { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; a.click(); }
+    data.lastExport = new Date().toISOString(); save(); renderData();
+  } catch (e) { if (e.name !== "AbortError") alert("Senden fehlgeschlagen: " + e.message); }
+};
+$("#wipeBtn").onclick = () => {
+  if (!confirm("Wirklich alle Sport-Daten auf diesem iPhone löschen? Vorher an den Mac senden!")) return;
+  if (!confirm("Sicher? Das kann nicht rückgängig gemacht werden.")) return;
+  localStorage.removeItem(KEY); location.reload();
+};
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+renderHome();
+</script>
+</body>
+</html>
