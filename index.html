@@ -127,6 +127,9 @@ input[type=date]{border:1px solid var(--line);border-radius:10px;padding:6px 8px
       <div class="muted" style="font-size:15px">Erstellt eine Datei mit allen Stunden. Im Teilen-Menü AirDrop → dein Mac wählen, dann im Mac-Tool „iPhone-Daten importieren“. Mehrfaches Senden ist kein Problem.</div>
       <button class="primary" id="expData">An Mac senden …</button>
       <div class="muted" style="font-size:14px;margin-top:8px" id="lastExp"></div></div>
+    <div class="card"><h3>3. Nach dem Import am Mac aufräumen</h3>
+      <div class="muted" style="font-size:15px">Löscht alle Stunden, die gesendet und danach nicht mehr geändert wurden. Die Schülerlisten bleiben. Erst drücken, wenn der Import am Mac geklappt hat.</div>
+      <button id="clearSent">Gesendete Stunden löschen</button></div>
     <div class="card"><h3>Einstellungen</h3>
       <div class="muted" style="font-size:15px" id="ruleInfo"></div></div>
     <div class="card"><h3>Gerät</h3>
@@ -215,7 +218,7 @@ function openLesson(){
   $("#lName").textContent = g.name; $("#lDate").value = l.date;
   renderHits(false);
 }
-$("#lDate").onchange = e => { if (e.target.value){ L().date = e.target.value; save(); } };
+$("#lDate").onchange = e => { if (e.target.value){ L().date = e.target.value; L().modified = Date.now(); save(); } };
 function renderHits(fromKey){
   const g = G(), l = L();
   const done = Object.keys(l.entries).length;
@@ -255,13 +258,14 @@ function renderEntry(){
   $("#fsBtn").className = "small " + (e.fs ? "on-acc" : ""); $("#fsBtn").textContent = e.fs ? "✓ Fachsprache" : "Fachsprache";
   const o = oralPoints(e); $("#ePts").textContent = o == null ? "" : `mündlich ${GRADE[o]}`;
 }
-const upd = fn => { fn(E()); cleanup(); save(); renderEntry(); };
+const touch = () => { L().modified = Date.now(); };
+const upd = fn => { fn(E()); cleanup(); touch(); save(); renderEntry(); };
 document.querySelectorAll("#statusSeg button").forEach(b => b.onclick = () => upd(e => { e[b.dataset.s] = !e[b.dataset.s]; if (b.dataset.s === "absent" && e.absent){ e.forgot = e.excused = false; } else if (e[b.dataset.s]) e.absent = false; }));
 $("#actBtn").onclick = () => upd(e => { e.act = ((e.act || 0) + 1) % 4; });
 document.querySelectorAll("#qualSeg button").forEach(b => b.onclick = () => upd(e => { e.qual = e.qual === b.dataset.v ? null : b.dataset.v; }));
 document.querySelectorAll("#partSeg button").forEach(b => b.onclick = () => upd(e => { e.part = e.part === b.dataset.v ? null : b.dataset.v; }));
 $("#fsBtn").onclick = () => upd(e => { e.fs = !e.fs; });
-$("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); save(); };
+$("#noteIn").oninput = ev => { E().note = ev.target.value; cleanup(); touch(); save(); };
 const back = () => { $("#noteIn").blur(); openLesson(); };
 $("#doneBtn").onclick = back; $("#eBack").onclick = back;
 
@@ -296,8 +300,16 @@ $("#expData").onclick = async () => {
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: name });
     else { const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; a.click(); }
-    data.lastExport = new Date().toISOString(); save(); renderData();
+    const now = Date.now(); data.groups.forEach(g => g.lessons.forEach(l => { l.sent = now; }));
+    data.lastExport = new Date(now).toISOString(); save(); renderData();
   } catch (e) { if (e.name !== "AbortError") alert("Senden fehlgeschlagen: " + e.message); }
+};
+$("#clearSent").onclick = () => {
+  const isSent = l => l.sent && (l.modified || l.created || 0) <= l.sent;
+  const all = data.groups.flatMap(g => g.lessons), del = all.filter(isSent), keep = all.length - del.length;
+  if (!del.length) return alert(all.length ? "Keine Stunde ist bereits gesendet. Erst „An Mac senden“." : "Es gibt keine Stunden.");
+  if (!confirm(`${del.length} gesendete Stunde(n) löschen?` + (keep ? `\n${keep} Stunde(n) wurden noch nicht gesendet oder danach geändert und bleiben erhalten.` : "") + "\n\nHat der Import am Mac geklappt?")) return;
+  data.groups.forEach(g => { g.lessons = g.lessons.filter(l => !isSent(l)); }); save(); toast(`${del.length} Stunde(n) gelöscht`); renderData();
 };
 $("#wipeBtn").onclick = () => {
   if (!confirm("Wirklich alle Sport-Daten auf diesem iPhone löschen? Vorher an den Mac senden!")) return;
